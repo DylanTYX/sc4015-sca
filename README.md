@@ -1,46 +1,57 @@
-# SC4015 Side-Channel Analysis Project Submission
+# SC4015 Side-Channel Analysis (CPA on AES)
 
-## What This Project Is
-In this project, we implemented Correlation Power Analysis (CPA) on the provided measured power traces in waveform.csv to recover all 16 bytes of the AES key.
+This project demonstrates a Correlation Power Analysis (CPA) attack to recover a 16-byte AES key from power traces.
 
-We based this implementation on the CPA workflow from lab (simulated traces) and extended it to work on the real waveform dataset.
+The implementation is in a single script:
+- `cpa_implementation.py`
 
-## Group Members
-We will fill in the final team details here before submission:
+It reads plaintext and waveform data from:
+- `waveform.csv`
 
-- Member 1: Full Name, Matriculation Number
-- Member 2: Full Name, Matriculation Number
-- Member 3: Full Name, Matriculation Number
+## Overview
 
-## Submission Deadline
-19 April 2026
+The script performs the standard first-order CPA workflow:
 
-## Files in This Submission
-- cpa_implementation.py: Our CPA implementation
-- waveform.csv: Input trace dataset used by the code
-- README.md: This file (execution and project summary)
+1. Load plaintexts and power traces from CSV.
+2. Use the first 100 traces for analysis (assignment requirement in code).
+3. For each key-byte position (0 to 15):
+	 - Build a hypothetical leakage model using:
+		 - AES S-box output: `Sbox[plaintext_byte XOR key_guess]`
+		 - Hamming weight leakage assumption
+	 - Compute Pearson correlation between hypothetical leakage and each time sample.
+	 - Pick the key guess with highest absolute correlation.
+4. Print recovered key bytes.
+5. Plot the key-byte-0 correlation profile.
 
-## What We Implemented
-Our script does the following:
+## Requirements
 
-1. Reads plaintexts and power traces from waveform.csv.
-2. Uses the first 100 traces for the assignment requirement.
-3. For each AES key byte position (0 to 15):
-   - Generates hypothetical leakage for all 256 key guesses using Hamming weight of S-box output.
-   - Computes Pearson correlation between hypothetical leakage and measured traces across all time samples.
-   - Takes the maximum absolute correlation for each key guess.
-   - Selects the key guess with the highest score as the recovered byte.
-4. Prints the recovered 16-byte key.
-5. Produces Plot-1 for key byte 0 (all 256 key guesses), with the best guess highlighted in red.
+- Python 3.9+
+- `numpy`
+- `scipy`
+- `matplotlib`
 
-## Environment and Dependencies
-We used Python 3 with these packages:
+Install dependencies:
 
 ```bash
 pip install numpy scipy matplotlib
 ```
 
-## How We Run the Code
+## Dataset Format
+
+`waveform.csv` is expected to be comma-separated with this layout per row:
+
+1. Plaintext (32 hex chars, 16 bytes)
+2. Ciphertext (32 hex chars, currently not used by the script)
+3. Power trace samples (floating-point values)
+
+Example row structure:
+
+```text
+<plaintext_hex>,<ciphertext_hex>,<sample_0>,<sample_1>,...,<sample_n>
+```
+
+## How To Run
+
 From the project root:
 
 ```bash
@@ -48,23 +59,34 @@ python -u cpa_implementation.py
 ```
 
 ## Expected Output
-When the script runs, it prints:
+
+The script prints:
 
 - Number of traces loaded and trace length
-- Best key-byte guess and correlation score for each byte index
-- Final recovered key (16 bytes in hex)
+- Best key guess and correlation score for each byte
+- Final recovered 16-byte key as hex list
 
-It also opens a plot for byte 0 correlation scores.
+It also opens a plot titled:
+- `CPA Correlation for Key Byte 0`
 
-## Plot-1 (Used in Our Report)
-For key byte K0, we:
+## Project Files
 
-1. Build a correlation matrix C of size 256 x 2500.
-2. Take the maximum absolute correlation value from each row.
-3. Plot these 256 values:
-   - X-axis: key guess (0 to 255)
-   - Y-axis: max absolute correlation
-4. Mark the best (correct) key guess in red.
+- `cpa_implementation.py`: main CPA implementation
+- `waveform.csv`: input traces and text data
+- `README.md`: project documentation
 
 ## Notes
-This README is written to accompany our code submission and provide reproducible execution steps for grading.
+
+- The script currently slices to the first 100 traces (`NUM_TRACES = 100`).
+- Correlation uses absolute Pearson values to score key hypotheses.
+- The plot is generated only for byte 0 scores (`scores_byte0`).
+
+## Possible Improvements
+
+- Add command-line arguments for:
+	- number of traces
+	- input file path
+	- optional output save path for figures
+- Save recovered key and scores to a results file.
+- Add a `requirements.txt` for one-command setup.
+

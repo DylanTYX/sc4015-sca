@@ -13,7 +13,7 @@ It reads plaintext and waveform data from:
 The script performs the standard first-order CPA workflow:
 
 1. Load plaintexts and power traces from CSV.
-2. Use the first 100 traces for analysis (assignment requirement in code).
+2. Use the first `N` traces for analysis (`--num-traces`, default `100`).
 3. For each key-byte position (0 to 15):
 	 - Build a hypothetical leakage model using:
 		 - AES S-box output: `Sbox[plaintext_byte XOR key_guess]`
@@ -34,6 +34,12 @@ Install dependencies:
 
 ```bash
 pip install numpy scipy matplotlib
+```
+
+or:
+
+```bash
+pip install -r requirements.txt
 ```
 
 ## Dataset Format
@@ -58,6 +64,16 @@ From the project root:
 python -u cpa_implementation.py
 ```
 
+Optional arguments:
+
+```bash
+python -u cpa_implementation.py \
+	--input-file waveform.csv \
+	--num-traces 100 \
+	--plot-save-path byte0_plot.png \
+	--results-file cpa_results.json
+```
+
 ## Expected Output
 
 The script prints:
@@ -77,16 +93,9 @@ It also opens a plot titled:
 
 ## Notes
 
-- The script currently slices to the first 100 traces (`NUM_TRACES = 100`).
+- The default trace count is 100 and is configurable via `--num-traces`.
+- The script validates `--num-traces` and raises an error when it is not greater than 0.
 - Correlation uses absolute Pearson values to score key hypotheses.
 - The plot is generated only for byte 0 scores (`scores_byte0`).
-
-## Possible Improvements
-
-- Add command-line arguments for:
-	- number of traces
-	- input file path
-	- optional output save path for figures
-- Save recovered key and scores to a results file.
-- Add a `requirements.txt` for one-command setup.
+- Recovered key and score metadata are saved to `cpa_results.json` by default.
 

@@ -1,3 +1,5 @@
+import argparse
+import json
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 import numpy as np
@@ -271,11 +273,38 @@ Sbox = (
     0x16,
 )
 
+parser = argparse.ArgumentParser(description="Run CPA on AES power traces.")
+parser.add_argument(
+    "--input-file",
+    default="waveform.csv",
+    help="Path to input CSV file.",
+)
+parser.add_argument(
+    "--num-traces",
+    type=int,
+    default=100,
+    help="Number of traces to use.",
+)
+parser.add_argument(
+    "--plot-save-path",
+    default=None,
+    help="Optional path to save the byte-0 plot image.",
+)
+parser.add_argument(
+    "--results-file",
+    default="cpa_results.json",
+    help="Path to save recovered key and score metadata as JSON.",
+)
+args = parser.parse_args()
+
+if args.num_traces <= 0:
+    raise ValueError("--num-traces must be greater than 0")
+
 # 1. Load waveform.csv and extract plaintexts and power traces.
 plaintexts = []
 traces = []
 
-with open("waveform.csv") as f:
+with open(args.input_file) as f:
     for line in f:
         # Drop empty values to handle occasional trailing commas safely.
         parts = [p for p in line.strip().split(",") if p]
@@ -293,8 +322,8 @@ with open("waveform.csv") as f:
 plaintexts = np.array(plaintexts, dtype=np.uint8)
 traces = np.array(traces)
 
-# Use only the first 100 traces as required by the assignment.
-NUM_TRACES = 100
+# Use only the requested number of traces.
+NUM_TRACES = args.num_traces
 plaintexts = plaintexts[:NUM_TRACES]
 traces = traces[:NUM_TRACES]
 
@@ -311,6 +340,7 @@ NUM_KEYS = 256
 NUM_BYTES = 16
 
 recovered_key = []
+byte_best_scores = []
 
 # Store scores for the first key byte for plotting later (Plot-1 requirement).
 scores_byte0 = None
@@ -344,12 +374,12 @@ for byte_index in range(NUM_BYTES):
     # Score each key guess by its maximum correlation across all time samples.
     scores = np.max(C, axis=1)
     best_key = np.argmax(scores)
+    best_score = float(scores[best_key])
 
-    recovered_key.append(best_key)
+    recovered_key.append(int(best_key))
+    byte_best_scores.append(best_score)
 
-    print(
-        f"Best guess for byte {byte_index}: {best_key} with score {scores[best_key]:.4f}"
-    )
+    print(f"Best guess for byte {byte_index}: {best_key} with score {best_score:.4f}")
 
     # Save only first-byte scores for plotting.
     if byte_index == 0:
@@ -359,6 +389,17 @@ for byte_index in range(NUM_BYTES):
 print("\n========================")
 print("\nRecovered Key:")
 print([hex(k) for k in recovered_key])
+
+# Save machine-readable results.
+results_payload = {
+    "recovered_key_hex": [hex(k) for k in recovered_key],
+    "recovered_key_int": recovered_key,
+    "byte_best_scores": byte_best_scores,
+    "scores_byte0": scores_byte0.tolist() if scores_byte0 is not None else [],
+}
+with open(args.results_file, "w") as f:
+    json.dump(results_payload, f, indent=2)
+print(f"Results saved to: {args.results_file}")
 
 # 5. Plot for project report (Plot-1 requirement).
 plt.figure()
@@ -372,5 +413,9 @@ plt.title("CPA Correlation for Key Byte 0")
 plt.xlabel("Key Guess (0-255)")
 plt.ylabel("Max Correlation")
 plt.legend()
+
+if args.plot_save_path:
+    plt.savefig(args.plot_save_path, bbox_inches="tight")
+    print(f"Plot saved to: {args.plot_save_path}")
 
 plt.show()
